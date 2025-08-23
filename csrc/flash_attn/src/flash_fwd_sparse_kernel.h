@@ -216,8 +216,8 @@ inline __device__ void sparse_attn_1rowblock(const Params &params, const int bid
     // block_offset: torch.Tensor,  # [BATCH, N_HEADS, cdiv(N_CTX, BLOCK_SIZE_M), NNZ_S]
     // num_blks = tl.load(block_count + off_hz * NUM_ROWS + start_m)
     // blks_ptr = block_offset + (off_hz * NUM_ROWS + start_m) * NNZ_S
-    int num_blks = params.block_count[(bidb * params.h + bidh) * params.NUM_ROWS + m_block];
-    auto* blks_ptr = params.block_offset + ((bidb * params.h + bidh) * params.NUM_ROWS + m_block) * params.NNZ_S;
+    int num_blks = params.block_count[m_block];
+    auto* blks_ptr = params.block_offset + m_block * params.NNZ_S;
   
     // if (threadIdx.x == 0 && blockIdx.y == 0 && blockIdx.z < 2) { print(tKgK); }
     // __syncthreads();
@@ -252,7 +252,7 @@ inline __device__ void sparse_attn_1rowblock(const Params &params, const int bid
     // column_index: torch.Tensor,  # [BATCH, N_HEADS, cdiv(N_CTX, BLOCK_SIZE_M), NNZ_V]
     // num_cols = tl.load(column_count + off_hz * NUM_ROWS + start_m)
     // cols_ptr = column_index + (off_hz * NUM_ROWS + start_m) * NNZ_V
-    int num_cols = params.column_count[(bidb * params.h + bidh) * params.NUM_ROWS + m_block];
+    int num_cols = params.column_count[(bidb * params.h_k + (bidh / params.h_h_k_ratio)) * params.NUM_ROWS + m_block];
     int num_cols_block = (num_cols + kBlockN - 1)/ kBlockN;
     if (num_blks <= 0 && num_cols_block <= 0) {
         Tensor mO = make_tensor(make_gmem_ptr(reinterpret_cast<Element*>(params.o_ptr)
@@ -430,7 +430,7 @@ inline __device__ void sparse_attn_1rowblock(const Params &params, const int bid
     }
      
     if (num_cols > 0) {
-        auto* cols_ptr = params.column_index + ((bidb * params.h + bidh) * params.NUM_ROWS + m_block) * params.NNZ_V;
+        auto* cols_ptr = params.column_index + (bidb * params.h_k + (bidh / params.h_h_k_ratio)) * params.NNZ_V;
         // We don't need to clear the sK smem tiles since we'll mask out the scores anyway.
         #pragma unroll
         for (int m = 0; m < size<1>(tKgKToken); ++m) {

@@ -88,12 +88,9 @@ class Kernel:
         return f"flash_{self.direction}_hdim{self.head_dim}_{self.dtype}_{'causal_' if self.is_causal == 'true' else ''}sm{self.sm}.cu"
 
 def get_all_kernels() -> List[Kernel]:
-    for direction in ["fwd", "fwd_split", "bwd"]:
+    for direction in ["fwd", "fwd_split", "bwd", "fwd_sparse"]:
         for dtype, head_dim, is_causal, sm in itertools.product(DTYPE_MAP.keys(), HEAD_DIMENSIONS, IS_CAUSAL, SM):
             yield Kernel(sm=sm, dtype=dtype, head_dim=head_dim, is_causal=is_causal, direction=direction)
-    # For sparse only generate HEAD_DIM=128 for now since this the only one we use currently 
-    for dtype, is_causal, sm in itertools.product(DTYPE_MAP.keys(), IS_CAUSAL, SM):
-        yield Kernel(sm=sm, dtype=dtype, head_dim=128, is_causal=is_causal, direction="fwd_sparse")
 
 def write_kernel(kernel: Kernel, autogen_dir: Path) -> None:
     prelude = """// Copyright (c) 2024, Tri Dao.
